@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"time"
 
@@ -78,6 +79,28 @@ func (*calcServer) ComputeAverage(streamData calcpb.CalculatorService_ComputeAve
 }
 
 func (*calcServer) FindMaximum(streamData calcpb.CalculatorService_FindMaximumServer) error {
+	max := int64(math.MinInt64)
+	for {
+		req, err := streamData.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Error while streaming the request - %v", err)
+			break
+		}
+		val := req.GetNum()
+		if val > max {
+			max = val
+		}
+		sendErr := streamData.Send(&calcpb.MaxNumResponse{
+			CurrentMax: max,
+		})
+
+		if sendErr != nil {
+			log.Fatal("Error whil sending response ", sendErr)
+		}
+	}
 	return nil
 }
 

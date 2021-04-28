@@ -32,9 +32,9 @@ func main() {
 
 	//callPrimeNumDecoposition(c)
 
-	callAverageNum(c)
+	//callAverageNum(c)
 
-	//callCurrentMax(c)
+	callCurrentMax(c)
 
 }
 
@@ -70,12 +70,70 @@ func callAverageNum(client calcpb.CalculatorServiceClient) {
 		log.Print("Error while sending stream ", err)
 	}
 
-	log.Printf("Result : Average val = ", res.GetResult())
+	log.Printf("Result : Average val = %f", res.GetResult())
 
 }
 
 func callCurrentMax(client calcpb.CalculatorServiceClient) {
 	fmt.Printf("Calling current max calculator \n")
+
+	requests := []*calcpb.MaxNumRequest{
+		&calcpb.MaxNumRequest{
+			Num: 10,
+		},
+		&calcpb.MaxNumRequest{
+			Num: 2,
+		},
+		&calcpb.MaxNumRequest{
+			Num: 35,
+		},
+		&calcpb.MaxNumRequest{
+			Num: 24,
+		},
+		&calcpb.MaxNumRequest{
+			Num: 64,
+		},
+		&calcpb.MaxNumRequest{
+			Num: 24,
+		},
+	}
+
+	// create a stream
+	stream, err := client.FindMaximum(context.Background())
+	if err != nil {
+		log.Fatal("Error while sending steam request")
+	}
+	waitch := make(chan struct{})
+	// send stream of request
+	go func() {
+
+		for _, req := range requests {
+			fmt.Printf("New Number : %v ->", req)
+			stream.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+		}
+		stream.CloseSend()
+
+	}()
+
+	// recieve stream requests
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal("Error while recieving steam response ", err)
+				break
+			}
+			fmt.Printf("Current Max : %d\n", res.GetCurrentMax())
+		}
+		close(waitch)
+
+	}()
+	<-waitch
+	fmt.Printf("current max calculator request completed\n")
 }
 
 func callPrimeNumDecoposition(client calcpb.CalculatorServiceClient) {
