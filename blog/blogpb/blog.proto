@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package blog;
+
+option go_package="blog/blogpb";
+
+message Blog {
+    string id = 1;
+    string author_id = 2;
+    string title = 3;
+    string content = 4;
+}
+
+message CreateBlogRequest {
+    Blog blog = 1;
+}
+
+message CreateBlogResponse {
+    Blog blog = 1;
+}
+
+message ReadBlogRequest {
+    string blog_id = 1;
+}
+
+message ReadBlogResponse {
+    Blog blog = 1;
+}
+// update
+message UpdateBlogRequest {
+    Blog blog = 1;
+}
+
+message UpdateBlogResponse {
+    Blog blog = 1;
+}
+// delete
+
+message DeleteBlogRequest {
+    string blog_id = 1;
+}
+
+message DeleteBlogResponse {
+    bool isDeleted = 1;
+}
+
+// list
+
+message ListBlogRequest {
+    string searchStr = 1;
+}
+
+message ListBlogResponse {
+    repeated Blog blogs = 1;
+}
+
+service BlogService {
+    rpc createBlog(CreateBlogRequest) returns (CreateBlogResponse);
+    rpc readBlog(ReadBlogRequest) returns (ReadBlogResponse);
+  //  rpc updateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
+   // rpc deleteBlog(DeleteBlogRequest) returns (DeleteBlogResponse);
+   // rpc ListBlog(ListBlogRequest) returns (ListBlogResponse);
+}
