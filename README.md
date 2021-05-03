@@ -20,6 +20,10 @@ FindMaximum API
 
 ### CRUD API with Mongodb
 
-package : calcpb
-proto : calc.proto
- 
+- package : calc 
+ simple calculator service 
+**proto : calc.proto
+
+- package : blog
+ simple blog api to create, read, update, delete and listing using streaming. 
+ **proto : blog.proto
