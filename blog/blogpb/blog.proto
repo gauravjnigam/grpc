@@ -41,23 +41,22 @@ message DeleteBlogRequest {
 }
 
 message DeleteBlogResponse {
-    bool isDeleted = 1;
+    string blog_id = 1;
 }
 
 // list
-
 message ListBlogRequest {
-    string searchStr = 1;
+    
 }
 
 message ListBlogResponse {
-    repeated Blog blogs = 1;
+    Blog blog = 1;
 }
 
 service BlogService {
     rpc createBlog(CreateBlogRequest) returns (CreateBlogResponse);
     rpc readBlog(ReadBlogRequest) returns (ReadBlogResponse);
-  //  rpc updateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
-   // rpc deleteBlog(DeleteBlogRequest) returns (DeleteBlogResponse);
-   // rpc ListBlog(ListBlogRequest) returns (ListBlogResponse);
+    rpc updateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
+    rpc deleteBlog(DeleteBlogRequest) returns (DeleteBlogResponse);
+    rpc ListBlog(ListBlogRequest) returns (stream ListBlogResponse);
 }

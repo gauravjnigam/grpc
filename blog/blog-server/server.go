@@ -65,7 +65,7 @@ func (*server) CreateBlog(ctx context.Context, request *blogpb.CreateBlogRequest
 }
 
 func (*server) ReadBlog(ctx context.Context, request *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
-	log.Print("Reading blog : ", request.BlogId)
+	log.Printf("Reading blog : %s", request.BlogId)
 	blogId := request.GetBlogId()
 	oid, err := primitive.ObjectIDFromHex(blogId)
 	if err != nil {
@@ -91,27 +91,135 @@ func (*server) ReadBlog(ctx context.Context, request *blogpb.ReadBlogRequest) (*
 	}
 
 	return &blogpb.ReadBlogResponse{
-		Blog: &blogpb.Blog{
-			Id:       blogData.ID.String(),
-			AuthorId: blogData.AuthorID,
-			Title:    blogData.Title,
-			Content:  blogData.Content,
-		},
+		Blog: dataToBlog(blogData),
 	}, nil
 
 }
 
-/*
+func dataToBlog(blogData *blogItem) (blog *blogpb.Blog) {
+	return &blogpb.Blog{
+		Id:       blogData.ID.String(),
+		AuthorId: blogData.AuthorID,
+		Title:    blogData.Title,
+		Content:  blogData.Content,
+	}
+}
+
 func (*server) UpdateBlog(ctx context.Context, request *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
+	log.Printf("updating blog : %v ", request)
+	blogId := request.GetBlog().GetId()
+	oid, err := primitive.ObjectIDFromHex(blogId)
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Error while parsing id "),
+		)
+	}
 
+	blogData := &blogItem{}
+	query := &bson.M{"_id": oid}
+
+	result := collection.FindOne(ctx, query)
+	if result.Err() != nil {
+		log.Fatal("Error while reading collection from mongodb")
+	}
+
+	err = result.Decode(blogData)
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Can't find blog with given ID : %v\n", err),
+		)
+
+	}
+
+	blogData.AuthorID = request.Blog.GetAuthorId()
+	blogData.Title = request.Blog.GetTitle()
+	blogData.Content = request.Blog.GetContent()
+	//filter := bson.M{"_id": bson.M{"$eq": oid}}
+	//update := bson.M{"$set": bson.M{"title": "42"}}
+	log.Print("Blog is being updated - checkpoint-2 ")
+	_, updateErr := collection.ReplaceOne(context.Background(), query, blogData)
+	if updateErr != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Error while updating the blog"),
+		)
+	}
+	log.Print("Blog updated, Sending updated blog response... ")
+	return &blogpb.UpdateBlogResponse{
+		Blog: dataToBlog(blogData),
+	}, nil
 }
+
 func (*server) DeleteBlog(ctx context.Context, request *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
+	log.Printf("deleting blog : %v ", request)
+	blogId := request.GetBlogId()
+	oid, err := primitive.ObjectIDFromHex(blogId)
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Error while parsing id "),
+		)
+	}
+	query := &bson.M{"_id": oid}
+	res, err := collection.DeleteOne(context.Background(), query)
 
-}
-func (*server) ListBlog(ctx context.Context, request *blogpb.ListBlogRequest) (*blogpb.ListBlogResponse, error) {
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Error while deleting the object : %v", err),
+		)
+	}
 
+	if res.DeletedCount == 0 {
+		return nil, status.Errorf(
+			codes.NotFound,
+			fmt.Sprintf("Couldn't find the blog to delete - %s", request.GetBlogId()),
+		)
+	}
+
+	return &blogpb.DeleteBlogResponse{
+		BlogId: request.GetBlogId(),
+	}, nil
 }
-*/
+
+func (*server) ListBlog(request *blogpb.ListBlogRequest, stream blogpb.BlogService_ListBlogServer) error {
+	log.Print("ListBLog request...")
+	filter := bson.D{{}}
+	cursor, err := collection.Find(context.Background(), filter)
+
+	if err != nil {
+		return status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("error while finding docs in mongodb - %v", err),
+		)
+	}
+	defer cursor.Close(context.Background())
+	for cursor.Next(context.Background()) {
+		data := &blogItem{}
+		err := cursor.Decode(data)
+		if err != nil {
+			return status.Errorf(
+				codes.Internal,
+				fmt.Sprintf("Error while decoding the data from mongodb : %v", err),
+			)
+		}
+
+		stream.Send(&blogpb.ListBlogResponse{
+			Blog: dataToBlog(data),
+		})
+		time.Sleep(1000 * time.Millisecond)
+	}
+	log.Print("completed the streaming response")
+	if err := cursor.Err(); err != nil {
+		return status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Error while iterating over result from mongodb"),
+		)
+	}
+	return nil
+}
 
 func main() {
 
@@ -132,13 +240,14 @@ func main() {
 	collection = client.Database("mydb").Collection("blog")
 
 	//test collection
-	res, err := collection.InsertOne(context.Background(), bson.M{"hello": "world"})
-	if err != nil {
-		log.Fatal(cerr)
-	}
-	id := res.InsertedID
-	fmt.Printf("Inserted id : %v\n", id)
-
+	/*
+		res, err := collection.InsertOne(context.Background(), bson.M{"hello": "world"})
+		if err != nil {
+			log.Fatal(cerr)
+		}
+		id := res.InsertedID
+		fmt.Printf("Inserted id : %v\n", id)
+	*/
 	lis, err := net.Listen("tcp", "0.0.0.0:50002")
 
 	if err != nil {
